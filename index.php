@@ -12,7 +12,7 @@ $context  = stream_context_create(array('http' => array('header' => 'Accept: app
 //
 
 $billChamber = "S";
-$billNumber = 635;
+$billNumber = 423;
 $billId = $billChamber.$billNumber;
 
 $url = "http://ncleg.net/gascripts/BillLookUp/BillLookUp.pl";
@@ -30,6 +30,31 @@ $testKeys;
 
 $ns_atom = $items->channel->item;
 $xmlKeys = get_object_vars($ns_atom);
+
+//compare the counts, to see if we need to add new actions to DB
+$actionCount = count($ns_atom);
+
+function getLastAction($number, $chamber){
+
+  $pdo = new PDO('mysql:host=localhost;dbname=ncgaWatch','root','root');
+
+  if($chamber == "H"){
+    $stmt = $pdo->prepare("SELECT MAX(actionNumber) FROM tblHouseBills WHERE billNumber = :billNumber");
+  }else if($chamber == "S"){
+    $stmt = $pdo->prepare("SELECT MAX(actionNumber) FROM tblSenateBills WHERE billNumber = :billNumber");
+  }
+
+  $stmt->bindParam(':billNumber', $number);
+  $ex = $stmt->execute();
+  $result = $stmt->fetch();
+
+  //cast to INT and return
+  $count = (int) $result[0];
+  return $count;
+
+}
+
+getLastAction($billId, $billChamber);
 
 function pushBillActionToDb($array, $chamber){
 
@@ -53,7 +78,6 @@ function pushBillActionToDb($array, $chamber){
     $stmt = $pdo->prepare("INSERT IGNORE INTO tblHouseBills (billNumber, action, actionNumber, billTitle, billUrl, pubDate, companionBillNumber, billId) VALUES (:billNumber, :action, :actionNumber, :billTitle, :billUrl, :pubDate, :companionBillNumber, :billId)");
   }else if($chamber == "S"){
     $stmt = $pdo->prepare("INSERT IGNORE INTO tblSenateBills (billNumber, action, actionNumber, billTitle, billUrl, pubDate, companionBillNumber, billId) VALUES (:billNumber, :action, :actionNumber, :billTitle, :billUrl, :pubDate, :companionBillNumber, :billId)");
-
   }
   $stmt->bindParam(':billNumber', $billNumber);
   $stmt->bindParam(':action', $array["title"]);
@@ -78,13 +102,9 @@ foreach($ns_atom as $item){
   pushBillActionToDb($tempArrayA, $billChamber);
 
   array_push($previewData, $tempArrayA);
+
 }
-
-//var_dump($previewData);
-
 /* End Build Preview Data */
-
-//var_dump($xml);
 ?>
 
 <table id="previewData" border = "1" style="margin-top: 20px; border:1px solid black; width: 100%; overflow-x: scroll; overflow-y: scroll; font-size: 10px;">
@@ -101,10 +121,7 @@ foreach($ns_atom as $item){
   echo "<tbody>";
   $rowCount = 0;
   foreach ($previewData as $data) {
-      //echo "<tr id='pRow-".$rowCount."'>";
-      //echo "<td><input type='checkbox' id='hideRow-".$rowCount."''>";
-      //echo "<label>Hide Row</label>";
-      //echo "</td>";
+    
       foreach($xmlKeys as $xmlK => $xmlV){
       echo "<td>";
       //handle empty nodes - insert placeholder for table alignment.

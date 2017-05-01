@@ -6,16 +6,13 @@ require 'getBillActions.php';
 
 $ch = $_GET["ch"];
 
-echo "Scraping...";
+echo "Scraping...<br><br>";
 
-for($i=0; $i<900; $i++){
-
+for($i=0; $i<10; $i++){
   getBillActions($ch, $i);
-  //echo "Scraped ".$ch.$i."!";
-
 }
 
-echo "Done scraping.";
+echo "Done scraping.<br><br>";
 echo "Errors:";
 echo "<ul>";
 foreach ($errors as $index => $value) {

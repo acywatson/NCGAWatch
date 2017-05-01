@@ -1,5 +1,28 @@
 <?php
+//declare placeholder for errors;
 $errors = [];
+
+function getLastAction($number, $chamber){
+
+  $pdo = new PDO('mysql:host=localhost;dbname=ncgaWatch','root','root');
+
+  if($chamber == "H"){
+    $stmt = $pdo->prepare("SELECT MAX(actionNumber) FROM tblHouseBills WHERE billNumber = :billNumber");
+  }else if($chamber == "S"){
+    $stmt = $pdo->prepare("SELECT MAX(actionNumber) FROM tblSenateBills WHERE billNumber = :billNumber");
+  }
+
+  $billNumber = $chamber.$number;
+
+  $stmt->bindParam(':billNumber', $billNumber);
+  $ex = $stmt->execute();
+  $result = $stmt->fetch();
+
+  //cast to INT and return
+  $count = (int) $result[0];
+
+  return $count;
+}// end getLastAction
 
 function pushBillActionToDb($array, $chamber){
 
@@ -38,7 +61,7 @@ function pushBillActionToDb($array, $chamber){
 
   return $ex;
 
-}
+}//end pushBillActionToDb
 
 function getBillActions($chamber, $number){
 
@@ -51,21 +74,28 @@ function getBillActions($chamber, $number){
 
   $context  = stream_context_create(array('http' => array('header' => 'Accept: application/xml')));
   $xmlFile = file_get_contents($url, false, $context);
+
   if($xmlFile === FALSE){
-    //echo "Bill ".$billChamber.$billNumber." NOT FOUND!";
-    array_push($errors, $billChamber.$billNumber);
+    //something's wrong with the XML, so log an error and bail.
+    array_push($errors, $billId);
     return;
+
   }else{
+
     $xml = simplexml_load_string($xmlFile);
 
     //stuff XML into variable
     $items = $xml;
 
-    //declare placeholder
-    $testKeys;
-
     $ns_atom = $items->channel->item;
-    //$xmlKeys = get_object_vars($ns_atom);
+
+    //compare count to number of actions in DB, see if we need to update.
+    $dbCount = getLastAction($number, $chamber);
+    $count = count($ns_atom);
+
+    if($dbCount >= $count-1){
+      return;
+    };
 
     foreach($ns_atom as $item){
 
@@ -74,13 +104,10 @@ function getBillActions($chamber, $number){
 
       pushBillActionToDb($tempArrayA, $billChamber);
 
-      //array_push($previewData, $tempArrayA);
     }//end foreach
 
   }//end if (bill is found)
 
-}
-
-
+}//end getBillActions
 
 ?>
